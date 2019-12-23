@@ -1,12 +1,15 @@
 import java.util.Arrays;   
+import java.util.HashMap;   
+import java.util.Map.Entry;   
 import java.util.Set;   
 import java.util.HashSet;   
 
 class Population {
     final static int   POPULATION_SIZE  = 10000;
-    final static float GENERATION_DECAY = 0.4,
-                       FIRST_PARENT_THRESHOLD = 0.9,
-                       SECOND_PARENT_THRESHOLD = 0.8;
+    final static float GENERATION_DECAY = 0.6,
+                       MUTATION_CHANCE = 0.08,
+                       FIRST_PARENT_THRESHOLD = 0.6,
+                       SECOND_PARENT_THRESHOLD = 0.6;
 
     GeneticLSystem[] plants;
 
@@ -37,7 +40,7 @@ class Population {
     void writeToFile(String file) {
         PrintWriter cache = createWriter(file);
         for(GeneticLSystem plant : plants) {
-            cache.println(plant.fitness + " " + plant.rule);
+            cache.println(plant.fitness + " " + plant.rule + " " + plant.species);
         }
         cache.flush();
         cache.close();
@@ -58,15 +61,12 @@ class Population {
             if(plant.status == Status.NEED_STATE) { plant.generateState(); }
             if(plant.status == Status.NEED_EVAL) { plant.draw(); }
         }
-        for(GeneticLSystem plant : plants) {
-            print(plant.fitness); 
-        }
         Arrays.sort(plants, new PlantComparator());
     }
 
     void mutate() {
         for(int i=0; i < POPULATION_SIZE; i++) {
-            plants[i].mutate();
+            if(random(1) < MUTATION_CHANCE) { plants[i].mutate(); }
         }
     }
 
@@ -97,20 +97,29 @@ class Population {
     void stats() {
         float average_fitness = 0;
         float[] deciles = new float[11];
+        HashMap<String, Integer> uniq_species = new HashMap<String, Integer>();
+        String name;
         for(int i = 0; i < POPULATION_SIZE; i++) {
             average_fitness += plants[i].fitness;
             if(i%(POPULATION_SIZE/10)==0) { deciles[i/(POPULATION_SIZE/10)] = plants[i].fitness; }
+            name = plants[i].species;
+            uniq_species.put(name, uniq_species.getOrDefault(name, 0)+1);
         }
         deciles[10] = plants[POPULATION_SIZE-1].fitness;
 
         average_fitness /= POPULATION_SIZE;
 
         println("--------------------------------------------------------------------------------------------------");
-
         println("Average fitness: " + nf(average_fitness,0,1) + "\n");
         println("Deciles: ");
         for(int i = 0; i < deciles.length; i++) {
-            println((10*i) + "th percentile:" + deciles[i]);
+            println((10*i) + "th percentile: " + deciles[i]);
+        }
+        println("\nSpecies distribution: " + uniq_species.size() + " alive."); 
+        for (Entry<String, Integer> entry : uniq_species.entrySet()) {  
+            if (entry.getValue()>= POPULATION_SIZE / 100) {
+                println("\t" + entry.getKey() + ": " + entry.getValue() + " alive");     
+            }
         }
         println("\nRandom Sample:");
         int index;
@@ -118,7 +127,7 @@ class Population {
             index = int(random(0, POPULATION_SIZE));
             println("\t" + index + ": " + plants[index]);
         }
-        println("\n\nTop Plants:");
+        println("\nTop Plants:");
         for(int i = 1; i <= 10; i++) {
             println("\t" + i + ": " + plants[POPULATION_SIZE-i]);
         }

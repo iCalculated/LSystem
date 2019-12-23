@@ -6,13 +6,15 @@ void setup() {
     Population population = new Population("systems.txt");
     for(int generation = 1; generation <= 50; generation++) {
         population.prepare();
-        population.drawTop(10, "images/" + generation);
-        population.writeToFile("files/systems" + generation + ".txt");
+        population.drawTop(10, "a/" + generation);
+        population.writeToFile("a/files/systems" + generation + ".txt");
         println("Generation " + generation);
         population.stats();
         population.reproduce();
+        population.mutate();
     }
-    population.drawTop(50, "images/final");
+    population.prepare();
+    population.drawTop(50, "a/final");
 
     //GeneticLSystem plant = new GeneticLSystem();
     //plant.generateRule();

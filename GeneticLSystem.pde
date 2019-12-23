@@ -1,18 +1,21 @@
 class GeneticLSystem { //implements Comparable<GeneticLSystem> {
-    static final int LENGTH = 5,   
+    // http://www.cs.stir.ac.uk/~goc/papers/GAsandL-systems.pdf
+    static final int LENGTH = 3,   
                      ITERATIONS = 3,
-                     OVERLOAD_COUNT = 6,
+                     OVERLOAD_COUNT = 5,
+                     BRANCH_COUNT = 1,
                      WEIGHT_HEIGHT = 100,
-                     WEIGHT_BALANCE = 50,
-                     WEIGHT_WIDTH = 70,
+                     WEIGHT_BALANCE = 90,
+                     WEIGHT_WIDTH = 40,
                      WEIGHT_OVERLOAD = 20,
-                     WEIGHT_BRANCH = 50;
+                     WEIGHT_BRANCH = 30;
 
                     
 
     static final float ANGLE = 0.436332;
 
-    String axiom, rule, state;
+    String axiom, rule, state, species;
+    int generation;
     String[] chromosomes;
     
     Status status;
@@ -24,10 +27,12 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
     GeneticLSystem() {
         axiom = "F";
         status = Status.NEED_RULE;
-        chromosomes = new String[2 * int(random(1,4)) + 1];
+        chromosomes = new String[2 * int(random(1,5)) + 1];
         for(int i = 0; i < chromosomes.length; i++) {
             chromosomes[i] = randomGene();
         }
+        species = chromosomes.length + "-" + generateRandomChars("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 4);
+        generation = 1;
     }
 
     GeneticLSystem(String data) {
@@ -35,16 +40,20 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
         String[] pieces = split(data, " ");
         rule = pieces[1];
         chromosomes = splitRule(rule);
+        species = pieces[2];
         fitness = float(pieces[0]);
         status = Status.NEED_STATE;
+        generation = 1;
     }
 
     GeneticLSystem(GeneticLSystem a, GeneticLSystem b) {
         axiom = "F";
+        species = a.species;
+        generation = max(a.generation, b.generation)+1;
         status = Status.NEED_RULE;
         chromosomes = a.chromosomes;
         int shorter = min(chromosomes.length, b.chromosomes.length);
-        int quantity = int(random(1,4));
+        int quantity = int(random(1,5));
         int index;
         for(int i = 0; i < quantity; i++) {
             index = int(random(0,shorter));
@@ -118,7 +127,6 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
         for(StructNode node : nodes) {
             y = node.data.y;
             x = node.data.x;
-            if(x < -400 || x > 400 || y < -50 || y > 900) { fitness = -1; return; }
             height += y;
             if(x < 0) { 
                 l_skew -= x; 
@@ -128,14 +136,15 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
                 r_skew += x;
                 if(x > max_r) { max_r = x;}
             }
-            if(node.countBranches() > 1) { branch_ratio++; }
+            if(node.countBranches() > BRANCH_COUNT) { branch_ratio++; }
             if(node.countBranches() > OVERLOAD_COUNT) { overloaded_ratio ++; }
         }
-        height /= 300*nodes.size();
+        height /= 400*nodes.size();
         width = max_r - max_l;
         width /= 600;
         balance = l_skew == 0 ||  r_skew == 0 ? 0 : (l_skew > r_skew) ? r_skew / l_skew : l_skew / r_skew;
         branch_ratio /= nodes.size();
+        overloaded_ratio = nodes.size() - overloaded_ratio;
         overloaded_ratio /= nodes.size();
         fitness = (WEIGHT_HEIGHT * height + WEIGHT_BALANCE * balance + WEIGHT_WIDTH * width + 
                    WEIGHT_OVERLOAD * overloaded_ratio + WEIGHT_BRANCH * branch_ratio)
@@ -152,7 +161,7 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
     }
 
     String randomGene() {
-        int length = int(random(0,6));
+        int length = int(random(0,4));
         char[] validCharacters = { 'F', '-', '+'};
         String gene = "";
         while(gene.length() < length) {
@@ -235,7 +244,7 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
     }
 
     String toString() {
-        return rule + ": " + fitness;
+        return species +  "-" + generation + ": " + rule + ", " + fitness;
     }
 
     //@Override
@@ -245,6 +254,15 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
     //    else if(this.fitness < s.fitness) { return -1; }
     //    else { return 0; }
     //}
+    String generateRandomChars(String candidateChars, int length) {
+    StringBuilder sb = new StringBuilder();
+    
+    for (int i = 0; i < length; i++) {
+        sb.append(candidateChars.charAt(int(random(candidateChars .length()))));
+    }
+
+    return sb.toString();
+}
 }
 
 enum Status
