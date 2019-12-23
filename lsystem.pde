@@ -3,11 +3,11 @@ class LSystem implements Comparable<LSystem> {
     String state;
     float fitness = 0;
     ArrayList<Node> nodes = new ArrayList<Node>();
-    nodes.add(new Node(0,0));
 
     HashMap<Character, String> rules = new HashMap<Character, String>();
 
     LSystem(String axiom) {
+        nodes.add(new Node(0,0));
         this.axiom = axiom;
     }
 
@@ -32,7 +32,7 @@ class LSystem implements Comparable<LSystem> {
         height = height / nodes.size();
         float balance = 1000*(right_skew > left_skew ? left_skew / right_skew : right_skew / left_skew);
         float spread = max_left + max_right;
-        fitness = height * (90*balance + 40*spread)/(90 + 90);
+        fitness = (100 * height + 90*balance + 40*spread)/(100 + 90 + 40);
         return fitness;
     }
 
@@ -122,16 +122,4 @@ class LSystem implements Comparable<LSystem> {
     public String toString() {
         return rules.get('F') + ": " + fitness; 
     }
-}
-
-class Node {
-    public float x, y;
-    Node(float x, float y) {
-        this.x = x;
-        this.y = y;
-    }
-
-    public String toString(){
-    return "(" + nf(x,0,1) + "," + nf(y,0,1) + ")";
-  }
 }
