@@ -1,3 +1,4 @@
+// The generic point class which stores plant node data
 class Node {
     public float x, y;
     Node(float x, float y) {

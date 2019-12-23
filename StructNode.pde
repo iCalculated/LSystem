@@ -1,3 +1,5 @@
+// The original node did not cut it, so this is a proper tree implementation with children and parents. 
+// The data stored is still just a node. 
 class StructNode {
     Node data;
     StructNode parent;
@@ -27,6 +29,7 @@ class StructNode {
         return ret;
     }
 
+    // ugly function but it pretty-prints (sub)trees
     String toString(int depth) {
         String ret = data.toString() + ", parent: " + (parent != null  ? parent.data.toString() : "null") + ", children: " + countBranches();
         for(StructNode child : children) {

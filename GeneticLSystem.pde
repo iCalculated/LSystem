@@ -1,18 +1,14 @@
 class GeneticLSystem { //implements Comparable<GeneticLSystem> {
-    // http://www.cs.stir.ac.uk/~goc/papers/GAsandL-systems.pdf
-    static final int LENGTH = 3,   
-                     ITERATIONS = 3,
-                     OVERLOAD_COUNT = 5,
-                     BRANCH_COUNT = 1,
-                     WEIGHT_HEIGHT = 100,
-                     WEIGHT_BALANCE = 90,
-                     WEIGHT_WIDTH = 40,
-                     WEIGHT_OVERLOAD = 20,
-                     WEIGHT_BRANCH = 30;
-
-                    
-
-    static final float ANGLE = 0.436332;
+    static final int LENGTH = 3,          // length of segments drawn
+                     ITERATIONS = 3,      // iterations when generating state
+                     OVERLOAD_COUNT = 5,  // the amount of child-branches a node can have before being penalized
+                     BRANCH_COUNT = 1,    // used to determine if a branch has multiple children
+                     WEIGHT_HEIGHT = 100, // weight of height versus other factors
+                     WEIGHT_BALANCE = 90, // weight of balance (relative to center)
+                     WEIGHT_WIDTH = 40,   // weight of width versus other factors
+                     WEIGHT_OVERLOAD = 20,// weight of "overload ratio" ([total] - [overloaded branches])/[total]
+                     WEIGHT_BRANCH = 30;  // weight of "branch ratio" ([nodes with children]/[total])
+    static final float ANGLE = 0.436332;  // angle by which + or - rotates
 
     String axiom, rule, state, species;
     int generation;
@@ -24,17 +20,20 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
     StructNode root = new StructNode(new Node(0,0));
     ArrayList<StructNode> nodes;  
 
+    // constructor from scratch, randomizes system
     GeneticLSystem() {
         axiom = "F";
         status = Status.NEED_RULE;
         chromosomes = new String[2 * int(random(1,5)) + 1];
         for(int i = 0; i < chromosomes.length; i++) {
-            chromosomes[i] = randomGene();
+            // the system rule for F is generated from aa series of shorter chromosomes
+            chromosomes[i] = randomChromosome();
         }
         species = chromosomes.length + "-" + generateRandomChars("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 4);
         generation = 1;
     }
-
+    
+    // constructor when loading systems from a file, somewhat lossy
     GeneticLSystem(String data) {
         axiom = "F";
         String[] pieces = split(data, " ");
@@ -42,10 +41,12 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
         chromosomes = splitRule(rule);
         species = pieces[2];
         fitness = float(pieces[0]);
+        // prompting regeneration from bare-bones
         status = Status.NEED_STATE;
         generation = 1;
     }
 
+    // cross-over based constructor, chromosomes taken from two systems to construct one
     GeneticLSystem(GeneticLSystem a, GeneticLSystem b) {
         axiom = "F";
         species = a.species;
@@ -61,26 +62,24 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
         }
     }
 
+    // used to split a rule into chromosomes
     String[] splitRule(String rule) {
         ArrayList<String> chromosomes = new ArrayList<String>();
         int right = rule.indexOf(']');
         int left = rule.indexOf('[');
         while(rule.indexOf(']') > 0 ) {
-            //println(rule);
             left = rule.indexOf('[');
             chromosomes.add(rule.substring(0,left));
             rule = rule.substring(left+1); 
-            //println(rule);
             right = rule.indexOf(']');
             chromosomes.add(rule.substring(0,right));
             rule = rule.substring(right+1); 
         }
         chromosomes.add(rule);
-        //println("rule: " + rule); 
-        //for(String gene : chromosomes) { println("\t" + gene); }
         return chromosomes.toArray(new String[chromosomes.size()]);
     }
 
+    // randomly chooses a chromosome, then either changes a random gene, inserts a random gene, or deletes a gene
     void mutate() {
         int target_chromosome = int(random(chromosomes.length));
         String chromosome = chromosomes[target_chromosome];
@@ -91,6 +90,7 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
         else {
             float rand = random(1);
             int target_gene = int(random(chromosome.length()));
+            // replace
             if (rand < 0.4) {
                 char gene = chromosome.charAt(target_gene);
                 char new_gene = validCharacters[int(random(validCharacters.length))];
@@ -99,20 +99,23 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
                 }
                 chromosomes[target_chromosome] = chromosome.substring(0,target_gene) + new_gene + chromosome.substring(target_gene + 1);
             }
+            // delete
             else if (rand < 0.7) {
                 chromosomes[target_chromosome] = chromosome.substring(0,target_gene) + chromosome.substring(target_gene + 1);
             }
+            // insert
             else {
                 chromosomes[target_chromosome] = chromosome.substring(0,target_gene) + validCharacters[int(random(validCharacters.length))] + chromosome.substring(target_gene);
             }
         }
-        //println("Original: " + chromosome + ", Radiated: " + chromosomes[target_chromosome]);
-
+        // updating status to prompt regeneration
         status = Status.NEED_RULE;
-        fitness = 0;
     }
 
+    // calculates fitness of a plant based on various factors
     void calculateFitness() {
+        // fitness function vaguely based on
+        // http://www.cs.stir.ac.uk/~goc/papers/GAsandL-systems.pdf
         fitness = 0;
         float height = 0;
         float width = 0;
@@ -139,9 +142,9 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
             if(node.countBranches() > BRANCH_COUNT) { branch_ratio++; }
             if(node.countBranches() > OVERLOAD_COUNT) { overloaded_ratio ++; }
         }
-        height /= 400*nodes.size();
+        height /= 1000*nodes.size();
         width = max_r - max_l;
-        width /= 600;
+        width /= 1000;
         balance = l_skew == 0 ||  r_skew == 0 ? 0 : (l_skew > r_skew) ? r_skew / l_skew : l_skew / r_skew;
         branch_ratio /= nodes.size();
         overloaded_ratio = nodes.size() - overloaded_ratio;
@@ -150,17 +153,21 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
                    WEIGHT_OVERLOAD * overloaded_ratio + WEIGHT_BRANCH * branch_ratio)
                    /(WEIGHT_HEIGHT + WEIGHT_BALANCE + WEIGHT_WIDTH + WEIGHT_OVERLOAD + WEIGHT_BRANCH);
         fitness *= 100;
+        // I felt really smart when I wrote this
         if(fitness!=fitness) { throw new Error("Fitness is NaN! lskew: " +  l_skew + ", rskew: " + r_skew + ", size: " + nodes.size());}
         status = Status.DONE; 
     }               
 
+
+    // Not just a getter, also recalculates the state
     float getFitness() {
         if(status == Status.NEED_EVAL) { calculateFitness(); }
         if(status != Status.DONE) { throw new Error("Requested fitness from status " + status); }
         return fitness;
     }
 
-    String randomGene() {
+    // constructs a chromosome from valid characters
+    String randomChromosome() {
         int length = int(random(0,4));
         char[] validCharacters = { 'F', '-', '+'};
         String gene = "";
@@ -170,6 +177,7 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
         return gene;
     }
 
+    // deterministically constructs a rule from series of chromosomes
     void generateRule() {
         rule = "";
         for(int i = 0; i < chromosomes.length-1; i++) {
@@ -180,6 +188,7 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
         status = Status.NEED_STATE;
     }
 
+    // pretty much the starting point of this project
     void generateState() {
         if(status != Status.NEED_STATE) { throw new Error("State requested with state " + status); }
         state = axiom;
@@ -199,7 +208,7 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
         status = Status.NEED_EVAL;
     }
 
-    //TODO: count branches
+    // draws the sytsem, which has the added benefit of creating a data structure with its points, nodes
     void draw() {
         nodes = new ArrayList<StructNode>(); 
         nodes.add(root);
@@ -219,7 +228,7 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
                     line(0,0,0,-LENGTH);
                     translate(0,-LENGTH);
                     getMatrix(current);
-                    current_branch = current_branch.addChild(new Node(500-current.m02, 900-current.m12));
+                    current_branch = current_branch.addChild(new Node(1500-current.m02, 2900-current.m12));
                     nodes.add(current_branch);
                     break;
                 case '-':
@@ -234,7 +243,6 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
                 case ']':
                     popMatrix();
                     if(current_branch.parent != null) current_branch = current_branch.parent;
-                    //stack -= 1;
                     break;
                 default:
                     //println("Illegal character");
@@ -247,6 +255,7 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
         return species +  "-" + generation + ": " + rule + ", " + fitness;
     }
 
+    // Comparator has since moved into a separate class
     //@Override
     //int compareTo(GeneticLSystem s) {
     //    //return fitness > s.fitness ? 1 : fitness < s.fitness ? -1 : 0;
@@ -255,17 +264,23 @@ class GeneticLSystem { //implements Comparable<GeneticLSystem> {
     //    else { return 0; }
     //}
     String generateRandomChars(String candidateChars, int length) {
-    StringBuilder sb = new StringBuilder();
-    
-    for (int i = 0; i < length; i++) {
-        sb.append(candidateChars.charAt(int(random(candidateChars .length()))));
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append(candidateChars.charAt(int(random(candidateChars .length()))));
+        }
+        return sb.toString();
     }
-
-    return sb.toString();
-}
 }
 
+// status was used to confirm that plants were in expected state
+// DONE: all functions have been performed
+// NEED_EVAL: plant needs to be drawn and have fitness calculated
+// NEED_STATE: plant needs state generated, often after rule update
+// NEED_RULE: plant needs rule generated, often after genetic effects
 enum Status
 {
-    DONE, NEED_EVAL, NEED_STATE, NEED_RULE;
+    DONE,      
+    NEED_EVAL,  
+    NEED_STATE, 
+    NEED_RULE;
 }
