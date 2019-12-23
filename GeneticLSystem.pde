@@ -1,6 +1,15 @@
-class GeneticLSystem implements Comparable<GeneticLSystem> {
-    static final int   LENGTH = 10,   
-                       ITERATIONS = 3;
+class GeneticLSystem { //implements Comparable<GeneticLSystem> {
+    static final int LENGTH = 5,   
+                     ITERATIONS = 3,
+                     OVERLOAD_COUNT = 6,
+                     WEIGHT_HEIGHT = 100,
+                     WEIGHT_BALANCE = 50,
+                     WEIGHT_WIDTH = 70,
+                     WEIGHT_OVERLOAD = 20,
+                     WEIGHT_BRANCH = 50;
+
+                    
+
     static final float ANGLE = 0.436332;
 
     String axiom, rule, state;
@@ -9,8 +18,8 @@ class GeneticLSystem implements Comparable<GeneticLSystem> {
     Status status;
     float fitness;
 
-    ArrayList<Node> nodes = new ArrayList<Node>();
-
+    StructNode root = new StructNode(new Node(0,0));
+    ArrayList<StructNode> nodes;  
 
     GeneticLSystem() {
         axiom = "F";
@@ -97,28 +106,44 @@ class GeneticLSystem implements Comparable<GeneticLSystem> {
     void calculateFitness() {
         fitness = 0;
         float height = 0;
-        float left_skew = 0;
-        float right_skew = 0;
-        float max_right = 0;
-        float max_left = 0;
-        for(Node n : nodes) {
-            height += n.y;
-            if(n.x > 500) {
-                left_skew += (n.x - 500); 
-                if (n.x > max_left) max_left = n.x - 500;
+        float width = 0;
+        float max_l = 0;
+        float max_r = 0;
+        float balance = 0;
+        float l_skew = 0;
+        float r_skew = 0;
+        float branch_ratio = 0;
+        float overloaded_ratio = 0;
+        float x, y;
+        for(StructNode node : nodes) {
+            y = node.data.y;
+            x = node.data.x;
+            if(x < -400 || x > 400 || y < -50 || y > 900) { fitness = -1; return; }
+            height += y;
+            if(x < 0) { 
+                l_skew -= x; 
+                if(x < max_l) { max_l = x;}
             }
-            else if(n.x < 500) {
-                right_skew += (500 - n.x);
-                if (n.x < max_right) max_right = 500-n.x;
+            else if (x > 0) {
+                r_skew += x;
+                if(x > max_r) { max_r = x;}
             }
-            if(n.x > 300 || n.x < -300 || n.y < -100 || n.y > 900) { fitness = -1; return; }
+            if(node.countBranches() > 1) { branch_ratio++; }
+            if(node.countBranches() > OVERLOAD_COUNT) { overloaded_ratio ++; }
         }
-        height = height / nodes.size();
-        float balance = 1000*(right_skew > left_skew ? left_skew / right_skew : right_skew / left_skew);
-        float spread = max_left + max_right;
-        fitness = (100 * height + 90*balance + 40*spread)/(100 + 90 + 40);
-        status = Status.DONE;
-    }
+        height /= 300*nodes.size();
+        width = max_r - max_l;
+        width /= 600;
+        balance = l_skew == 0 ||  r_skew == 0 ? 0 : (l_skew > r_skew) ? r_skew / l_skew : l_skew / r_skew;
+        branch_ratio /= nodes.size();
+        overloaded_ratio /= nodes.size();
+        fitness = (WEIGHT_HEIGHT * height + WEIGHT_BALANCE * balance + WEIGHT_WIDTH * width + 
+                   WEIGHT_OVERLOAD * overloaded_ratio + WEIGHT_BRANCH * branch_ratio)
+                   /(WEIGHT_HEIGHT + WEIGHT_BALANCE + WEIGHT_WIDTH + WEIGHT_OVERLOAD + WEIGHT_BRANCH);
+        fitness *= 100;
+        if(fitness!=fitness) { throw new Error("Fitness is NaN! lskew: " +  l_skew + ", rskew: " + r_skew + ", size: " + nodes.size());}
+        status = Status.DONE; 
+    }               
 
     float getFitness() {
         if(status == Status.NEED_EVAL) { calculateFitness(); }
@@ -167,6 +192,9 @@ class GeneticLSystem implements Comparable<GeneticLSystem> {
 
     //TODO: count branches
     void draw() {
+        nodes = new ArrayList<StructNode>(); 
+        nodes.add(root);
+        StructNode current_branch = root;
         int stack = 0;
         resetMatrix();
         background(0);
@@ -182,7 +210,8 @@ class GeneticLSystem implements Comparable<GeneticLSystem> {
                     line(0,0,0,-LENGTH);
                     translate(0,-LENGTH);
                     getMatrix(current);
-                    nodes.add(new Node(500-current.m02, 900-current.m12));
+                    current_branch = current_branch.addChild(new Node(500-current.m02, 900-current.m12));
+                    nodes.add(current_branch);
                     break;
                 case '-':
                     rotate(-ANGLE);
@@ -192,19 +221,10 @@ class GeneticLSystem implements Comparable<GeneticLSystem> {
                     break;
                 case '[':
                     pushMatrix();
-                    //stack++;
-                    //println("stack error: " + stack);
-                    //println(rule);
-                    //for(String g : chromosomes) {
-                    //    println("\t" + g);
-                    //}
-                    //if(stack > 30) { 
-                    //    delay(160000);
-                    //    print(state);
-                    //}
                     break;
                 case ']':
                     popMatrix();
+                    if(current_branch.parent != null) current_branch = current_branch.parent;
                     //stack -= 1;
                     break;
                 default:
@@ -218,10 +238,13 @@ class GeneticLSystem implements Comparable<GeneticLSystem> {
         return rule + ": " + fitness;
     }
 
-    @Override
-    int compareTo(GeneticLSystem s) {
-        return fitness - s.fitness > 0 ? 1 : s.fitness - fitness > 0 ? -1 : 0;
-    }
+    //@Override
+    //int compareTo(GeneticLSystem s) {
+    //    //return fitness > s.fitness ? 1 : fitness < s.fitness ? -1 : 0;
+    //    if(this.fitness > s.fitness) { return 1; }
+    //    else if(this.fitness < s.fitness) { return -1; }
+    //    else { return 0; }
+    //}
 }
 
 enum Status

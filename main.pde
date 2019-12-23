@@ -1,5 +1,3 @@
-
-
 void setup() {
     smooth();
     stroke(255);
@@ -15,6 +13,13 @@ void setup() {
         population.reproduce();
     }
     population.drawTop(50, "images/final");
+
+    //GeneticLSystem plant = new GeneticLSystem();
+    //plant.generateRule();
+    //plant.generateState();
+    //plant.draw();
+    //print(plant);
+    //delay(10000);
     exit();
 }
 

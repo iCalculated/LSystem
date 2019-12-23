@@ -58,7 +58,10 @@ class Population {
             if(plant.status == Status.NEED_STATE) { plant.generateState(); }
             if(plant.status == Status.NEED_EVAL) { plant.draw(); }
         }
-        Arrays.sort(plants);
+        for(GeneticLSystem plant : plants) {
+            print(plant.fitness); 
+        }
+        Arrays.sort(plants, new PlantComparator());
     }
 
     void mutate() {
